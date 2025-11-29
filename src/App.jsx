@@ -1,53 +1,78 @@
 import { useState, useMemo } from "react";
 import { Zap, RotateCcw, Swords, Trophy } from 'lucide-react';
 
+// Safelist for production build - ensures Tailwind doesn't purge these classes
+// w-14 w-16 w-20 h-20 h-24 h-28 text-xs text-sm text-base text-lg text-xl text-2xl text-3xl text-4xl text-5xl
+// bg-slate-800 bg-slate-900 bg-rose-500 bg-pink-600 bg-fuchsia-600 bg-blue-500 bg-indigo-600 bg-purple-700
+// from-slate-800 via-slate-900 to-black from-rose-500 via-pink-600 to-fuchsia-600 from-blue-500 via-indigo-600 to-purple-700
+// border-slate-700 border-pink-400 border-blue-400 ring-yellow-400 ring-offset-gray-900
+
 // --- Card Component - Memoized ---
 const Card = ({ cardId, number, hidden, type, onClick, selected, disabled }) => {
-    const baseStyle = `
-        w-16 h-24 sm:w-20 sm:h-28 md:w-24 md:h-32 
-        rounded-xl sm:rounded-2xl border-2 border-white/50 
-        shadow-2xl text-white font-extrabold text-xl sm:text-2xl 
-        flex items-center justify-center 
-        transition-all duration-300 transform-gpu 
-        cursor-pointer 
-        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-    `;
-
-    let cardFaceStyle = '';
-    if (hidden) {
-        cardFaceStyle = type === "bot"
-            ? 'bg-red-800/70 rotate-y-6 shadow-red-900/50'
-            : 'bg-indigo-800/70 shadow-indigo-900/50';
-    } else {
-        cardFaceStyle = type === "bot"
-            ? 'bg-gradient-to-br from-red-600/90 to-pink-500/90 hover:scale-105'
-            : 'bg-gradient-to-br from-blue-500/90 to-purple-600/90 hover:scale-105';
-    }
-
-    const selectionEffect = selected
-        ? 'ring-4 ring-yellow-400 scale-110 -translate-y-4 z-10'
-        : 'hover:rotate-1 hover:scale-[1.03] active:scale-95';
-
-    const cardContent = hidden ? (
-        <span className="text-3xl sm:text-4xl text-white/80 opacity-90">
-            <Zap className="w-6 h-6 sm:w-8 sm:h-8" />
-        </span>
-    ) : (
-        <div className="flex flex-col items-center justify-center">
-            <span className="text-sm opacity-80">Value</span>
-            <span className="text-4xl sm:text-5xl">{number}</span>
-        </div>
-    );
-
+    const isBot = type === "bot";
+    
+    // Inline styles for critical styling to ensure they work in production
+    const cardStyle = {
+        transformStyle: 'preserve-3d',
+    };
+    
+    const shadowStyle = hidden 
+        ? { boxShadow: '0 10px 25px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)' }
+        : isBot
+            ? { boxShadow: '0 15px 35px rgba(236,72,153,0.5), 0 5px 15px rgba(236,72,153,0.3), inset 0 2px 4px rgba(255,255,255,0.3)' }
+            : { boxShadow: '0 15px 35px rgba(99,102,241,0.5), 0 5px 15px rgba(99,102,241,0.3), inset 0 2px 4px rgba(255,255,255,0.3)' };
+    
+    const depthStyle = {
+        transform: 'translateZ(-6px)',
+        filter: 'blur(3px)',
+        opacity: 0.6
+    };
+    
     return (
         <div
-            className={`${baseStyle} ${cardFaceStyle} ${selected ? selectionEffect : ''}`}
             onClick={!disabled && onClick ? onClick : undefined}
-            style={{ perspective: '1000px', transform: selected ? 'rotateY(0deg) scale(1.1) translateY(-1rem)' : 'rotateY(0deg) scale(1)' }}
+            className={`
+                relative cursor-pointer transition-all duration-300
+                ${selected ? 'scale-110 -translate-y-3 z-20' : ''}
+                ${disabled && !selected ? 'opacity-60 cursor-not-allowed' : ''}
+                ${!hidden && !disabled ? 'hover:scale-110 hover:-translate-y-2' : ''}
+            `}
+            style={{
+                ...cardStyle,
+                width: 'clamp(3.5rem, 4vw + 2rem, 5rem)',
+                height: 'clamp(5rem, 5vw + 3rem, 7rem)',
+            }}
         >
-            <div className="w-full h-full p-2 backdrop-blur-sm rounded-xl">
-                {cardContent}
+            <div
+                className={`
+                    w-full h-full rounded-lg flex flex-col items-center justify-center
+                    font-black shadow-2xl transform transition-all duration-300
+                    ${hidden 
+                        ? 'bg-gradient-to-br from-slate-800 via-slate-900 to-black border-2 border-slate-700' 
+                        : isBot
+                            ? 'bg-gradient-to-br from-rose-500 via-pink-600 to-fuchsia-600 border-2 border-pink-400'
+                            : 'bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-700 border-2 border-blue-400'
+                    }
+                    ${selected ? 'ring-4 ring-yellow-400 ring-offset-2 ring-offset-gray-900' : ''}
+                `}
+                style={shadowStyle}
+            >
+                {!hidden ? (
+                    <>
+                        <span className="text-xs opacity-70 text-white font-medium uppercase tracking-wide">Value</span>
+                        <span className="text-4xl text-white drop-shadow-lg font-black">{number}</span>
+                    </>
+                ) : (
+                    <div className="text-white opacity-50">
+                        <Zap className="w-8 h-8" />
+                    </div>
+                )}
             </div>
+            
+            <div 
+                className={`absolute inset-0 rounded-lg -z-10 ${hidden ? 'bg-slate-950' : isBot ? 'bg-pink-900' : 'bg-indigo-900'}`}
+                style={depthStyle}
+            />
         </div>
     );
 };
@@ -219,119 +244,159 @@ export default function App() {
     const currentSelectionSum = gameState.selectedCards.reduce((sum, c) => sum + c.value, 0);
 
     return (
-        <div className="min-h-screen w-full bg-gray-900 font-sans p-4 sm:p-8 flex flex-col items-center">
-            <h1 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-gray-200 mb-2 mt-4 text-center tracking-tight">
-                🔥 SUMMON UNO
-            </h1>
-            <p className="text-sm text-gray-400 mb-6 text-center">Select 2 cards, higher sum wins the pot!</p>
+        <div className="min-h-screen w-full bg-gradient-to-br from-slate-950 via-indigo-950 to-purple-950 flex flex-col items-center py-4 sm:py-6 px-3 sm:px-4 relative overflow-hidden">
+            {/* Animated background blobs */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-10 sm:top-20 left-5 sm:left-10 w-48 sm:w-72 h-48 sm:h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse" />
+                <div className="absolute bottom-10 sm:bottom-20 right-5 sm:right-10 w-56 sm:w-96 h-56 sm:h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse" style={{ animationDelay: '2s' }} />
+                <div className="absolute top-1/2 left-1/2 w-64 sm:w-80 h-64 sm:h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse" style={{ animationDelay: '4s' }} />
+            </div>
+
+            {/* Header */}
+            <div className="relative z-10 mb-4 sm:mb-6 text-center">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black mb-1 bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 bg-clip-text text-transparent drop-shadow-2xl">
+                    ⚔️ CARD DUEL
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-400 font-medium">
+                    Pick 2 cards • Highest sum wins! 🏆
+                </p>
+            </div>
 
             {/* Scoreboard */}
-            <div className="w-full max-w-4xl grid grid-cols-3 gap-4 mb-8 text-white">
-                <div className="p-4 rounded-xl bg-gray-800/70 border border-gray-700 shadow-lg text-center">
-                    <h3 className="text-sm sm:text-base font-semibold text-blue-300">Player 1</h3>
-                    <p className="text-2xl sm:text-3xl font-bold">{gameState.playerWinPile.length}</p>
-                    <p className="text-xs text-gray-500">Cards Won</p>
+            <div className="relative z-10 w-full max-w-5xl grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
+                <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/40 backdrop-blur-xl rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-blue-500/30 shadow-xl text-center">
+                    <div className="text-xs sm:text-sm text-blue-300 mb-1 font-bold">YOU</div>
+                    <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white">{gameState.playerWinPile.length}</div>
+                    <div className="text-[10px] sm:text-xs text-blue-200/70">Cards Won</div>
                 </div>
-                <div className="p-4 rounded-xl bg-gray-800/70 border border-gray-700 shadow-lg text-center">
-                    <h3 className="text-sm sm:text-base font-semibold text-yellow-300">Rounds Won</h3>
-                    <p className="text-2xl sm:text-3xl font-bold">{gameState.playerScore} - {gameState.botScore}</p>
+                
+                <div className="bg-gradient-to-br from-purple-900/40 to-pink-800/40 backdrop-blur-xl rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-purple-500/30 shadow-xl text-center">
+                    <div className="text-xs sm:text-sm text-purple-300 mb-1 font-bold">SCORE</div>
+                    <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white">{gameState.playerScore} : {gameState.botScore}</div>
+                    <div className="text-[10px] sm:text-xs text-purple-200/70">Rounds Won</div>
                 </div>
-                <div className="p-4 rounded-xl bg-gray-800/70 border border-gray-700 shadow-lg text-center">
-                    <h3 className="text-sm sm:text-base font-semibold text-red-300">Bot</h3>
-                    <p className="text-2xl sm:text-3xl font-bold">{gameState.botWinPile.length}</p>
-                    <p className="text-xs text-gray-500">Cards Won</p>
+                
+                <div className="bg-gradient-to-br from-pink-900/40 to-red-800/40 backdrop-blur-xl rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-pink-500/30 shadow-xl text-center">
+                    <div className="text-xs sm:text-sm text-pink-300 mb-1 font-bold">BOT</div>
+                    <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white">{gameState.botWinPile.length}</div>
+                    <div className="text-[10px] sm:text-xs text-pink-200/70">Cards Won</div>
                 </div>
             </div>
 
             {/* Battle Arena */}
-            <div className="w-full max-w-4xl mb-8 bg-gray-800/50 p-4 rounded-2xl border border-gray-700 shadow-inner">
-                <h2 className="text-xl font-bold text-center mb-4 text-gray-200 flex items-center justify-center gap-2">
-                    <Swords className="w-5 h-5 text-red-400" />
-                    BATTLE ARENA
-                </h2>
+            <div className="relative z-10 w-full max-w-5xl mb-4 sm:mb-6 bg-gradient-to-br from-gray-900/60 via-gray-800/60 to-gray-900/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-6 border border-white/10 shadow-2xl">
+                <div className="flex items-center justify-center gap-2 mb-3 sm:mb-4">
+                    <Swords className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
+                    <h2 className="text-base sm:text-lg md:text-xl font-black text-yellow-400 tracking-wide">BATTLE ARENA</h2>
+                </div>
 
-                <div className="flex flex-col lg:flex-row justify-between items-center gap-6 w-full">
-                    <div className="flex flex-col items-center flex-1 min-h-[180px]">
-                        <p className="text-red-300 font-semibold mb-2">Bot's Play</p>
-                        <div className="flex flex-wrap justify-center gap-2 sm:gap-4 items-center min-h-[140px]">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
+                    {/* Bot's Cards */}
+                    <div className="flex flex-col items-center flex-1 w-full sm:w-auto">
+                        <p className="text-xs sm:text-sm font-bold text-pink-400 mb-2">🤖 BOT</p>
+                        <div className="flex gap-2 items-center justify-center min-h-[90px] sm:min-h-[110px]">
                             {gameState.lastRoundSelection.bot.length > 0 ? (
                                 gameState.lastRoundSelection.bot.map((card) => (
                                     <Card key={`bot-${card.id}`} cardId={card.id} number={card.value} type="bot" disabled />
                                 ))
                             ) : (
-                                <p className="text-gray-500 italic">Bot's Cards Here</p>
+                                <p className="text-gray-500 italic text-xs sm:text-sm">Waiting...</p>
                             )}
                         </div>
+                        {gameState.lastRoundSelection.bot.length > 0 && (
+                            <div className="mt-1 sm:mt-2 text-base sm:text-lg font-black text-pink-300">
+                                = {gameState.lastRoundSelection.bot.reduce((a, b) => a + b.value, 0)}
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex flex-col items-center text-center sm:mx-4 w-full sm:w-auto">
-                        <div className={`text-base sm:text-lg font-bold p-2 px-4 rounded-full transition-all duration-300
+                    {/* Result */}
+                    <div className="flex items-center justify-center order-first sm:order-none">
+                        <div className={`text-xs sm:text-sm md:text-base font-bold p-2 px-3 sm:px-4 rounded-full transition-all duration-300 whitespace-nowrap
                             ${gameState.roundResult.includes('Player 1 wins') 
-                                ? 'bg-green-600 text-white shadow-lg' 
+                                ? 'bg-green-500 text-white shadow-lg shadow-green-500/50' 
                                 : gameState.roundResult.includes('Bot wins') 
-                                ? 'bg-red-600 text-white shadow-lg' 
+                                ? 'bg-red-500 text-white shadow-lg shadow-red-500/50' 
                                 : gameState.roundResult.includes('tie') 
-                                ? 'bg-yellow-600 text-gray-900 shadow-lg'
-                                : 'bg-gray-700/50 text-gray-300'}
+                                ? 'bg-yellow-500 text-gray-900 shadow-lg shadow-yellow-500/50'
+                                : 'bg-gray-700 text-gray-300'}
                         `}>
-                            {gameState.roundResult || 'Waiting for Cards...'}
+                            {gameState.roundResult ? gameState.roundResult.split(':')[0] : '⚡ Ready'}
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-center flex-1 min-h-[180px]">
-                        <p className="text-blue-300 font-semibold mb-2">Your Play</p>
-                        <div className="flex flex-wrap justify-center gap-2 sm:gap-4 items-center min-h-[140px]">
+                    {/* Player's Cards */}
+                    <div className="flex flex-col items-center flex-1 w-full sm:w-auto">
+                        <p className="text-xs sm:text-sm font-bold text-blue-400 mb-2">👤 YOU</p>
+                        <div className="flex gap-2 items-center justify-center min-h-[90px] sm:min-h-[110px]">
                             {gameState.lastRoundSelection.player.length > 0 ? (
                                 gameState.lastRoundSelection.player.map((card) => (
                                     <Card key={`player-${card.id}`} cardId={card.id} number={card.value} type="player" disabled />
                                 ))
                             ) : (
-                                <p className="text-gray-500 italic">Your Cards Here</p>
+                                <p className="text-gray-500 italic text-xs sm:text-sm">Waiting...</p>
                             )}
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Current Selection & Play Button */}
-            <div className="w-full max-w-4xl flex flex-col sm:flex-row justify-between items-center mb-8 p-4 bg-gray-700/50 rounded-xl border border-gray-600 shadow-xl">
-                <div className="flex flex-col items-center mb-4 sm:mb-0 min-h-[160px]">
-                    <p className="text-lg font-bold text-yellow-300 mb-1">Your Selection ({gameState.selectedCards.length}/2)</p>
-                    <div className="flex gap-2 items-center min-h-[120px]">
-                        {gameState.selectedCards.length > 0 ? (
-                            gameState.selectedCards.map(c => (
-                                <Card key={`sel-${c.id}`} cardId={c.id} number={c.value} type="player" selected disabled={gameState.isRoundInPlay} />
-                            ))
-                        ) : (
-                            <p className="text-gray-500 italic text-sm">Click cards below to select</p>
+                        {gameState.lastRoundSelection.player.length > 0 && (
+                            <div className="mt-1 sm:mt-2 text-base sm:text-lg font-black text-blue-300">
+                                = {gameState.lastRoundSelection.player.reduce((a, b) => a + b.value, 0)}
+                            </div>
                         )}
                     </div>
-                    {gameState.selectedCards.length > 0 && (
-                        <p className="text-sm text-gray-300 mt-2">Total Sum: <span className="text-xl font-bold text-yellow-300">{currentSelectionSum}</span></p>
-                    )}
                 </div>
-
-                <button
-                    onClick={playRound}
-                    disabled={gameState.selectedCards.length !== 2 || gameState.isRoundInPlay || gameState.gameOver}
-                    className={`px-8 py-3 rounded-full font-extrabold text-lg transition-all duration-200 shadow-2xl
-                        ${gameState.selectedCards.length === 2 && !gameState.isRoundInPlay && !gameState.gameOver
-                            ? 'bg-green-500 hover:bg-green-400 text-white transform hover:scale-105 active:scale-95'
-                            : 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                        }
-                    `}
-                >
-                    {gameState.isRoundInPlay ? 'BATTLE INITIATED...' : 'SUBMIT CARDS & BATTLE'}
-                </button>
             </div>
 
-            {/* Player Hand */}
+            {/* Current Selection */}
             {!gameState.gameOver && (
-                <div className="w-full max-w-4xl mb-10">
-                    <h2 className="text-xl font-bold mb-3 text-white">
-                        Your Hand ({gameState.deck.length} cards left) - Select {2 - gameState.selectedCards.length} more
-                    </h2>
-                    <div className="flex flex-wrap gap-2 sm:gap-3 justify-start p-3 bg-gray-800/70 rounded-xl border border-gray-700 shadow-inner max-h-90 overflow-y-auto">
+                <div className="relative z-10 w-full max-w-5xl mb-4 sm:mb-6 bg-gradient-to-br from-yellow-900/30 to-orange-900/30 backdrop-blur-xl rounded-2xl p-3 sm:p-4 border border-yellow-500/30 shadow-xl">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
+                        <div className="flex flex-col items-center w-full sm:w-auto">
+                            <p className="text-sm sm:text-base font-bold text-yellow-300 mb-2">
+                                Your Hand ({gameState.selectedCards.length}/2)
+                            </p>
+                            <div className="flex gap-2 items-center min-h-[90px] sm:min-h-[110px]">
+                                {gameState.selectedCards.length > 0 ? (
+                                    gameState.selectedCards.map(c => (
+                                        <Card key={`sel-${c.id}`} cardId={c.id} number={c.value} type="player" selected disabled={gameState.isRoundInPlay} />
+                                    ))
+                                ) : (
+                                    <p className="text-gray-400 italic text-xs sm:text-sm">Select 2 cards below</p>
+                                )}
+                            </div>
+                            {gameState.selectedCards.length > 0 && (
+                                <p className="text-xs sm:text-sm text-gray-300 mt-1 sm:mt-2">
+                                    Sum: <span className="text-lg sm:text-xl font-black text-yellow-300">{currentSelectionSum}</span>
+                                </p>
+                            )}
+                        </div>
+
+                        <button
+                            onClick={playRound}
+                            disabled={gameState.selectedCards.length !== 2 || gameState.isRoundInPlay || gameState.gameOver}
+                            className={`px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base md:text-lg transition-all duration-200 shadow-2xl whitespace-nowrap
+                                ${gameState.selectedCards.length === 2 && !gameState.isRoundInPlay && !gameState.gameOver
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white transform hover:scale-105 active:scale-95 border-2 border-green-400/50'
+                                    : 'bg-gray-600 text-gray-400 cursor-not-allowed border-2 border-gray-700'}
+                            `}
+                        >
+                            {gameState.isRoundInPlay ? '⚔️ BATTLING...' : '⚡ BATTLE!'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Player Deck */}
+            {!gameState.gameOver && (
+                <div className="relative z-10 w-full max-w-5xl mb-4 sm:mb-6">
+                    <div className="flex justify-between items-center mb-2 sm:mb-3">
+                        <h2 className="text-sm sm:text-base md:text-lg font-bold text-white">
+                            🎴 Your Deck
+                        </h2>
+                        <span className="text-xs sm:text-sm bg-blue-500/20 px-2 sm:px-3 py-1 rounded-full border border-blue-400/30 text-blue-300 font-bold">
+                            {gameState.deck.length} cards left
+                        </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-center sm:justify-start p-3 sm:p-4 bg-gradient-to-br from-indigo-900/40 via-purple-900/40 to-pink-900/40 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl max-h-[280px] sm:max-h-96 overflow-y-auto">
                         {gameState.deck.map(card => (
                             <Card
                                 key={card.id}
@@ -347,42 +412,48 @@ export default function App() {
             )}
 
             {/* Game Over & Log */}
-            <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="relative z-10 w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 {gameState.gameOver && (
-                    <div className="p-6 rounded-2xl bg-yellow-900/40 border-4 border-yellow-500 shadow-2xl text-white text-center">
-                        <h2 className="text-4xl font-extrabold mb-4 flex items-center justify-center gap-3">
-                            <Trophy className="w-8 h-8 text-yellow-400" />
-                            GAME OVER
-                        </h2>
-                        <p className="text-xl font-semibold mb-6">
+                    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-yellow-900/50 to-orange-900/50 backdrop-blur-xl border-4 border-yellow-500 shadow-2xl text-white text-center">
+                        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                            <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-400" />
+                            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
+                                GAME OVER
+                            </h2>
+                        </div>
+                        <p className="text-base sm:text-lg md:text-xl font-bold mb-4 sm:mb-6">
                             {gameState.playerScore > gameState.botScore
-                                ? "🎉 Player 1 is the Grand Champion!"
+                                ? "🎉 VICTORY! YOU WIN!"
                                 : gameState.playerScore < gameState.botScore
-                                    ? "🤖 The Bot has bested you this time!"
-                                    : "🤝 It's a Noble Draw!"}
+                                    ? "🤖 BOT WINS! NICE TRY!"
+                                    : "🤝 PERFECT TIE!"}
                         </p>
-                        <p className="text-lg">Final Score: {gameState.playerScore} (P1) vs {gameState.botScore} (Bot)</p>
+                        <p className="text-sm sm:text-base md:text-lg mb-4 sm:mb-6">
+                            Final: <span className="font-black">{gameState.playerScore}</span> - <span className="font-black">{gameState.botScore}</span>
+                        </p>
                         <button
                             onClick={resetGame}
-                            className="mt-6 px-6 py-3 bg-yellow-500 rounded-full hover:bg-yellow-600 text-gray-900 font-bold transition-transform transform hover:scale-[1.03] active:scale-95 shadow-lg flex items-center mx-auto gap-2"
+                            className="px-6 py-3 sm:px-8 sm:py-4 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl sm:rounded-2xl hover:from-yellow-400 hover:to-orange-400 text-gray-900 font-black text-sm sm:text-base transition-all transform hover:scale-105 active:scale-95 shadow-2xl flex items-center mx-auto gap-2 border-2 border-yellow-400"
                         >
-                            <RotateCcw className="w-5 h-5" />
-                            START NEW GAME
+                            <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
+                            NEW GAME
                         </button>
                     </div>
                 )}
 
-                <div className={`${gameState.gameOver ? 'md:col-span-1' : 'md:col-span-2'} p-4 rounded-xl bg-gray-700/70 border border-gray-600 shadow-inner h-64 overflow-y-auto`}>
-                    <h2 className="text-xl font-bold mb-2 text-white">Round Log</h2>
+                <div className={`${gameState.gameOver ? 'md:col-span-1' : 'md:col-span-2'} p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-gray-900/70 to-gray-800/70 backdrop-blur-xl border border-white/10 shadow-xl h-48 sm:h-64 overflow-y-auto`}>
+                    <h2 className="text-base sm:text-lg md:text-xl font-bold mb-2 sm:mb-3 text-white flex items-center gap-2">
+                        📜 Battle Log
+                    </h2>
                     <div className="space-y-1">
                         {gameState.roundLog.length > 0 ? (
                             gameState.roundLog.map((log, i) => (
-                                <p key={`log-${i}`} className={`text-sm p-1 rounded ${log.includes('Player 1 wins') ? 'text-green-300' : log.includes('Bot wins') ? 'text-red-300' : 'text-gray-400'} border-b border-gray-600/50`}>
+                                <div key={`log-${i}`} className={`text-xs sm:text-sm p-2 rounded-lg ${log.includes('Player 1 wins') ? 'bg-green-500/20 text-green-300 border border-green-500/30' : log.includes('Bot wins') ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-gray-700/50 text-gray-400 border border-gray-600/30'}`}>
                                     {log}
-                                </p>
+                                </div>
                             ))
                         ) : (
-                            <p className="text-gray-500 italic text-center pt-8">The game history will appear here.</p>
+                            <p className="text-gray-500 italic text-center pt-8 text-xs sm:text-sm">No battles yet. Start playing!</p>
                         )}
                     </div>
                 </div>
@@ -391,15 +462,421 @@ export default function App() {
             {!gameState.gameOver && (
                 <button
                     onClick={resetGame}
-                    className="mt-8 px-6 py-3 bg-gray-500 rounded-full hover:bg-gray-400 text-white font-bold transition-transform transform hover:scale-105 active:scale-95 shadow-lg flex items-center gap-2"
+                    className="relative z-10 mt-4 sm:mt-6 px-5 py-2.5 sm:px-6 sm:py-3 bg-gray-600 rounded-xl hover:bg-gray-500 text-white font-bold text-sm sm:text-base transition-all transform hover:scale-105 active:scale-95 shadow-xl flex items-center gap-2"
                 >
-                    <RotateCcw className="w-5 h-5" />
+                    <RotateCcw className="w-4 h-4" />
                     Reset Game
                 </button>
             )}
         </div>
     );
 }
+
+
+
+
+// import { useState, useMemo } from "react";
+// import { Zap, RotateCcw, Swords, Trophy } from 'lucide-react';
+
+// // --- Card Component - Memoized ---
+// const Card = ({ cardId, number, hidden, type, onClick, selected, disabled }) => {
+//     const baseStyle = `
+//         w-16 h-24 sm:w-20 sm:h-28 md:w-24 md:h-32 
+//         rounded-xl sm:rounded-2xl border-2 border-white/50 
+//         shadow-2xl text-white font-extrabold text-xl sm:text-2xl 
+//         flex items-center justify-center 
+//         transition-all duration-300 transform-gpu 
+//         cursor-pointer 
+//         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+//     `;
+
+//     let cardFaceStyle = '';
+//     if (hidden) {
+//         cardFaceStyle = type === "bot"
+//             ? 'bg-red-800/70 rotate-y-6 shadow-red-900/50'
+//             : 'bg-indigo-800/70 shadow-indigo-900/50';
+//     } else {
+//         cardFaceStyle = type === "bot"
+//             ? 'bg-gradient-to-br from-red-600/90 to-pink-500/90 hover:scale-105'
+//             : 'bg-gradient-to-br from-blue-500/90 to-purple-600/90 hover:scale-105';
+//     }
+
+//     const selectionEffect = selected
+//         ? 'ring-4 ring-yellow-400 scale-110 -translate-y-4 z-10'
+//         : 'hover:rotate-1 hover:scale-[1.03] active:scale-95';
+
+//     const cardContent = hidden ? (
+//         <span className="text-3xl sm:text-4xl text-white/80 opacity-90">
+//             <Zap className="w-6 h-6 sm:w-8 sm:h-8" />
+//         </span>
+//     ) : (
+//         <div className="flex flex-col items-center justify-center">
+//             <span className="text-sm opacity-80">Value</span>
+//             <span className="text-4xl sm:text-5xl">{number}</span>
+//         </div>
+//     );
+
+//     return (
+//         <div
+//             className={`${baseStyle} ${cardFaceStyle} ${selected ? selectionEffect : ''}`}
+//             onClick={!disabled && onClick ? onClick : undefined}
+//             style={{ perspective: '1000px', transform: selected ? 'rotateY(0deg) scale(1.1) translateY(-1rem)' : 'rotateY(0deg) scale(1)' }}
+//         >
+//             <div className="w-full h-full p-2 backdrop-blur-sm rounded-xl">
+//                 {cardContent}
+//             </div>
+//         </div>
+//     );
+// };
+
+// // --- Main App Component ---
+// export default function App() {
+//     // Create initial deck once - use useMemo to ensure it's stable
+//     const initialDeck = useMemo(() => 
+//         Array.from({ length: 2 }, (_, i) =>
+//             Array.from({ length: 10 }, (_, j) => ({ 
+//                 id: `card-${i}-${j}`, 
+//                 value: j + 1 
+//             }))
+//         ).flat()
+//     , []);
+
+//     const [gameState, setGameState] = useState(() => {
+//         // Shuffle initial deck
+//         const shuffled = [...initialDeck];
+//         for (let i = shuffled.length - 1; i > 0; i--) {
+//             const j = Math.floor(Math.random() * (i + 1));
+//             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+//         }
+        
+//         return {
+//             deck: shuffled,
+//             selectedCards: [],
+//             playerWinPile: [],
+//             botWinPile: [],
+//             roundLog: [],
+//             roundResult: "",
+//             gameOver: false,
+//             isRoundInPlay: false,
+//             lastRoundSelection: { player: [], bot: [] },
+//             playerScore: 0,
+//             botScore: 0
+//         };
+//     });
+
+//     const handleSelect = (cardId) => {
+//         if (gameState.isRoundInPlay || gameState.gameOver) return;
+
+//         setGameState(prev => {
+//             const card = prev.deck.find(c => c.id === cardId);
+//             if (!card) return prev;
+
+//             const isSelected = prev.selectedCards.find(c => c.id === cardId);
+
+//             if (isSelected) {
+//                 // Deselect card - return to deck
+//                 return {
+//                     ...prev,
+//                     selectedCards: prev.selectedCards.filter(c => c.id !== cardId),
+//                     deck: [...prev.deck, card]
+//                 };
+//             } else if (prev.selectedCards.length < 2) {
+//                 // Select card - remove from deck
+//                 return {
+//                     ...prev,
+//                     selectedCards: [...prev.selectedCards, card],
+//                     deck: prev.deck.filter(c => c.id !== cardId)
+//                 };
+//             }
+            
+//             return prev;
+//         });
+//     };
+
+//     const playRound = () => {
+//         if (gameState.selectedCards.length !== 2 || gameState.isRoundInPlay || gameState.gameOver) return;
+//         if (gameState.deck.length < 2) {
+//             setGameState(prev => ({
+//                 ...prev,
+//                 roundResult: "Cannot play, not enough cards left for the bot's draw!",
+//                 gameOver: true
+//             }));
+//             return;
+//         }
+
+//         setGameState(prev => ({
+//             ...prev,
+//             isRoundInPlay: true,
+//             roundResult: "... Battle in Progress ..."
+//         }));
+
+//         setTimeout(() => {
+//             setGameState(prev => {
+//                 // Bot picks 2 cards
+//                 const tempDeck = [...prev.deck];
+//                 const botSelection = [];
+//                 for (let i = 0; i < 2; i++) {
+//                     const idx = Math.floor(Math.random() * tempDeck.length);
+//                     botSelection.push(tempDeck[idx]);
+//                     tempDeck.splice(idx, 1);
+//                 }
+
+//                 const playerSum = prev.selectedCards.reduce((a, b) => a + b.value, 0);
+//                 const botSum = botSelection.reduce((a, b) => a + b.value, 0);
+
+//                 let result = "";
+//                 let newPlayerWinPile = [...prev.playerWinPile];
+//                 let newBotWinPile = [...prev.botWinPile];
+//                 let newPlayerScore = prev.playerScore;
+//                 let newBotScore = prev.botScore;
+//                 const wonCards = [...prev.selectedCards, ...botSelection];
+
+//                 if (playerSum > botSum) {
+//                     result = `Player 1 wins: ${playerSum} vs ${botSum} (Diff: ${playerSum - botSum})`;
+//                     newPlayerWinPile.push(...wonCards);
+//                     newPlayerScore++;
+//                 } else if (botSum > playerSum) {
+//                     result = `Bot wins: ${botSum} vs ${playerSum} (Diff: ${botSum - playerSum})`;
+//                     newBotWinPile.push(...wonCards);
+//                     newBotScore++;
+//                 } else {
+//                     result = `It's a tie: ${playerSum} vs ${botSum}`;
+//                     newPlayerWinPile.push(...prev.selectedCards);
+//                     newBotWinPile.push(...botSelection);
+//                 }
+
+//                 const newRoundLog = [`Round ${prev.roundLog.length + 1}: ${result}`, ...prev.roundLog];
+
+//                 // Check if game is over
+//                 const isGameOver = tempDeck.length < 2;
+
+//                 return {
+//                     ...prev,
+//                     deck: tempDeck,
+//                     selectedCards: [],
+//                     playerWinPile: newPlayerWinPile,
+//                     botWinPile: newBotWinPile,
+//                     roundLog: newRoundLog,
+//                     roundResult: result,
+//                     lastRoundSelection: { 
+//                         player: prev.selectedCards, 
+//                         bot: botSelection 
+//                     },
+//                     playerScore: newPlayerScore,
+//                     botScore: newBotScore,
+//                     isRoundInPlay: false,
+//                     gameOver: isGameOver
+//                 };
+//             });
+//         }, 1200);
+//     };
+
+//     const resetGame = () => {
+//         const shuffled = [...initialDeck];
+//         for (let i = shuffled.length - 1; i > 0; i--) {
+//             const j = Math.floor(Math.random() * (i + 1));
+//             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+//         }
+        
+//         setGameState({
+//             deck: shuffled,
+//             selectedCards: [],
+//             playerWinPile: [],
+//             botWinPile: [],
+//             roundLog: [],
+//             roundResult: "",
+//             gameOver: false,
+//             isRoundInPlay: false,
+//             lastRoundSelection: { player: [], bot: [] },
+//             playerScore: 0,
+//             botScore: 0
+//         });
+//     };
+
+//     const currentSelectionSum = gameState.selectedCards.reduce((sum, c) => sum + c.value, 0);
+
+//     return (
+//         <div className="min-h-screen w-full bg-gray-900 font-sans p-4 sm:p-8 flex flex-col items-center">
+//             <h1 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-gray-200 mb-2 mt-4 text-center tracking-tight">
+//                 🔥 SUMMON UNO
+//             </h1>
+//             <p className="text-sm text-gray-400 mb-6 text-center">Select 2 cards, higher sum wins the pot!</p>
+
+//             {/* Scoreboard */}
+//             <div className="w-full max-w-4xl grid grid-cols-3 gap-4 mb-8 text-white">
+//                 <div className="p-4 rounded-xl bg-gray-800/70 border border-gray-700 shadow-lg text-center">
+//                     <h3 className="text-sm sm:text-base font-semibold text-blue-300">Player 1</h3>
+//                     <p className="text-2xl sm:text-3xl font-bold">{gameState.playerWinPile.length}</p>
+//                     <p className="text-xs text-gray-500">Cards Won</p>
+//                 </div>
+//                 <div className="p-4 rounded-xl bg-gray-800/70 border border-gray-700 shadow-lg text-center">
+//                     <h3 className="text-sm sm:text-base font-semibold text-yellow-300">Rounds Won</h3>
+//                     <p className="text-2xl sm:text-3xl font-bold">{gameState.playerScore} - {gameState.botScore}</p>
+//                 </div>
+//                 <div className="p-4 rounded-xl bg-gray-800/70 border border-gray-700 shadow-lg text-center">
+//                     <h3 className="text-sm sm:text-base font-semibold text-red-300">Bot</h3>
+//                     <p className="text-2xl sm:text-3xl font-bold">{gameState.botWinPile.length}</p>
+//                     <p className="text-xs text-gray-500">Cards Won</p>
+//                 </div>
+//             </div>
+
+//             {/* Battle Arena */}
+//             <div className="w-full max-w-4xl mb-8 bg-gray-800/50 p-4 rounded-2xl border border-gray-700 shadow-inner">
+//                 <h2 className="text-xl font-bold text-center mb-4 text-gray-200 flex items-center justify-center gap-2">
+//                     <Swords className="w-5 h-5 text-red-400" />
+//                     BATTLE ARENA
+//                 </h2>
+
+//                 <div className="flex flex-col lg:flex-row justify-between items-center gap-6 w-full">
+//                     <div className="flex flex-col items-center flex-1 min-h-[180px]">
+//                         <p className="text-red-300 font-semibold mb-2">Bot's Play</p>
+//                         <div className="flex flex-wrap justify-center gap-2 sm:gap-4 items-center min-h-[140px]">
+//                             {gameState.lastRoundSelection.bot.length > 0 ? (
+//                                 gameState.lastRoundSelection.bot.map((card) => (
+//                                     <Card key={`bot-${card.id}`} cardId={card.id} number={card.value} type="bot" disabled />
+//                                 ))
+//                             ) : (
+//                                 <p className="text-gray-500 italic">Bot's Cards Here</p>
+//                             )}
+//                         </div>
+//                     </div>
+
+//                     <div className="flex flex-col items-center text-center sm:mx-4 w-full sm:w-auto">
+//                         <div className={`text-base sm:text-lg font-bold p-2 px-4 rounded-full transition-all duration-300
+//                             ${gameState.roundResult.includes('Player 1 wins') 
+//                                 ? 'bg-green-600 text-white shadow-lg' 
+//                                 : gameState.roundResult.includes('Bot wins') 
+//                                 ? 'bg-red-600 text-white shadow-lg' 
+//                                 : gameState.roundResult.includes('tie') 
+//                                 ? 'bg-yellow-600 text-gray-900 shadow-lg'
+//                                 : 'bg-gray-700/50 text-gray-300'}
+//                         `}>
+//                             {gameState.roundResult || 'Waiting for Cards...'}
+//                         </div>
+//                     </div>
+
+//                     <div className="flex flex-col items-center flex-1 min-h-[180px]">
+//                         <p className="text-blue-300 font-semibold mb-2">Your Play</p>
+//                         <div className="flex flex-wrap justify-center gap-2 sm:gap-4 items-center min-h-[140px]">
+//                             {gameState.lastRoundSelection.player.length > 0 ? (
+//                                 gameState.lastRoundSelection.player.map((card) => (
+//                                     <Card key={`player-${card.id}`} cardId={card.id} number={card.value} type="player" disabled />
+//                                 ))
+//                             ) : (
+//                                 <p className="text-gray-500 italic">Your Cards Here</p>
+//                             )}
+//                         </div>
+//                     </div>
+//                 </div>
+//             </div>
+
+//             {/* Current Selection & Play Button */}
+//             <div className="w-full max-w-4xl flex flex-col sm:flex-row justify-between items-center mb-8 p-4 bg-gray-700/50 rounded-xl border border-gray-600 shadow-xl">
+//                 <div className="flex flex-col items-center mb-4 sm:mb-0 min-h-[160px]">
+//                     <p className="text-lg font-bold text-yellow-300 mb-1">Your Selection ({gameState.selectedCards.length}/2)</p>
+//                     <div className="flex gap-2 items-center min-h-[120px]">
+//                         {gameState.selectedCards.length > 0 ? (
+//                             gameState.selectedCards.map(c => (
+//                                 <Card key={`sel-${c.id}`} cardId={c.id} number={c.value} type="player" selected disabled={gameState.isRoundInPlay} />
+//                             ))
+//                         ) : (
+//                             <p className="text-gray-500 italic text-sm">Click cards below to select</p>
+//                         )}
+//                     </div>
+//                     {gameState.selectedCards.length > 0 && (
+//                         <p className="text-sm text-gray-300 mt-2">Total Sum: <span className="text-xl font-bold text-yellow-300">{currentSelectionSum}</span></p>
+//                     )}
+//                 </div>
+
+//                 <button
+//                     onClick={playRound}
+//                     disabled={gameState.selectedCards.length !== 2 || gameState.isRoundInPlay || gameState.gameOver}
+//                     className={`px-8 py-3 rounded-full font-extrabold text-lg transition-all duration-200 shadow-2xl
+//                         ${gameState.selectedCards.length === 2 && !gameState.isRoundInPlay && !gameState.gameOver
+//                             ? 'bg-green-500 hover:bg-green-400 text-white transform hover:scale-105 active:scale-95'
+//                             : 'bg-gray-500 text-gray-300 cursor-not-allowed'
+//                         }
+//                     `}
+//                 >
+//                     {gameState.isRoundInPlay ? 'BATTLE INITIATED...' : 'SUBMIT CARDS & BATTLE'}
+//                 </button>
+//             </div>
+
+//             {/* Player Hand */}
+//             {!gameState.gameOver && (
+//                 <div className="w-full max-w-4xl mb-10">
+//                     <h2 className="text-xl font-bold mb-3 text-white">
+//                         Your Hand ({gameState.deck.length} cards left) - Select {2 - gameState.selectedCards.length} more
+//                     </h2>
+//                     <div className="flex flex-wrap gap-2 sm:gap-3 justify-start p-3 bg-gray-800/70 rounded-xl border border-gray-700 shadow-inner max-h-90 overflow-y-auto">
+//                         {gameState.deck.map(card => (
+//                             <Card
+//                                 key={card.id}
+//                                 cardId={card.id}
+//                                 number={card.value}
+//                                 type="player"
+//                                 onClick={() => handleSelect(card.id)}
+//                                 disabled={gameState.selectedCards.length >= 2 && !gameState.selectedCards.find(c => c.id === card.id) || gameState.isRoundInPlay}
+//                             />
+//                         ))}
+//                     </div>
+//                 </div>
+//             )}
+
+//             {/* Game Over & Log */}
+//             <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+//                 {gameState.gameOver && (
+//                     <div className="p-6 rounded-2xl bg-yellow-900/40 border-4 border-yellow-500 shadow-2xl text-white text-center">
+//                         <h2 className="text-4xl font-extrabold mb-4 flex items-center justify-center gap-3">
+//                             <Trophy className="w-8 h-8 text-yellow-400" />
+//                             GAME OVER
+//                         </h2>
+//                         <p className="text-xl font-semibold mb-6">
+//                             {gameState.playerScore > gameState.botScore
+//                                 ? "🎉 Player 1 is the Grand Champion!"
+//                                 : gameState.playerScore < gameState.botScore
+//                                     ? "🤖 The Bot has bested you this time!"
+//                                     : "🤝 It's a Noble Draw!"}
+//                         </p>
+//                         <p className="text-lg">Final Score: {gameState.playerScore} (P1) vs {gameState.botScore} (Bot)</p>
+//                         <button
+//                             onClick={resetGame}
+//                             className="mt-6 px-6 py-3 bg-yellow-500 rounded-full hover:bg-yellow-600 text-gray-900 font-bold transition-transform transform hover:scale-[1.03] active:scale-95 shadow-lg flex items-center mx-auto gap-2"
+//                         >
+//                             <RotateCcw className="w-5 h-5" />
+//                             START NEW GAME
+//                         </button>
+//                     </div>
+//                 )}
+
+//                 <div className={`${gameState.gameOver ? 'md:col-span-1' : 'md:col-span-2'} p-4 rounded-xl bg-gray-700/70 border border-gray-600 shadow-inner h-64 overflow-y-auto`}>
+//                     <h2 className="text-xl font-bold mb-2 text-white">Round Log</h2>
+//                     <div className="space-y-1">
+//                         {gameState.roundLog.length > 0 ? (
+//                             gameState.roundLog.map((log, i) => (
+//                                 <p key={`log-${i}`} className={`text-sm p-1 rounded ${log.includes('Player 1 wins') ? 'text-green-300' : log.includes('Bot wins') ? 'text-red-300' : 'text-gray-400'} border-b border-gray-600/50`}>
+//                                     {log}
+//                                 </p>
+//                             ))
+//                         ) : (
+//                             <p className="text-gray-500 italic text-center pt-8">The game history will appear here.</p>
+//                         )}
+//                     </div>
+//                 </div>
+//             </div>
+
+//             {!gameState.gameOver && (
+//                 <button
+//                     onClick={resetGame}
+//                     className="mt-8 px-6 py-3 bg-gray-500 rounded-full hover:bg-gray-400 text-white font-bold transition-transform transform hover:scale-105 active:scale-95 shadow-lg flex items-center gap-2"
+//                 >
+//                     <RotateCcw className="w-5 h-5" />
+//                     Reset Game
+//                 </button>
+//             )}
+//         </div>
+//     );
+// }
 
 
 
