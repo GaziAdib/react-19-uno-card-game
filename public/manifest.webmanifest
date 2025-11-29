@@ -1,0 +1,21 @@
+{
+  "name": "UNO Glass Card Battle",
+  "short_name": "UNO Battle",
+  "description": "Play UNO Glass Card Battle offline!",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#1e293b",
+  "theme_color": "#1e293b"
+}
